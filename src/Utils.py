@@ -1,6 +1,7 @@
 #LIBRARIES
 import torch
-from torch.utils.data import DataLoader
+import csv
+from torch.utils.data import DataLoader, random_split, Subset
 
 #SCRIPTS
 from Model import DEVICE
@@ -8,8 +9,8 @@ from Dataset import MyDataset
 
 def saveCheckpoint(model,optimizer,epoch, checkpointFile = "myCheckpoint.pth"):
     checkpoint = {
-        "model": model.state_dict,
-        "optimizer": optimizer.state_dict,
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
         "epoch": epoch
     }
 
@@ -26,7 +27,8 @@ def loadCheckpoint(checkpointFile,model,optimizer):
 
 
 def accuracy(yTrue, yPred):
-    correct =  torch.eq(yTrue,yPred).sum().item()
+    preds = torch.argmax(yPred, dim=1) 
+    correct =  torch.eq(preds, yTrue).sum().item()
     acc = correct / len(yTrue)
     return acc
 
@@ -36,8 +38,10 @@ def printTrainTime(start,end,device):
 
 def getDataLoader(trainImagesDir,
                   testImagesDir,
+                  validationImagesDir,
                   trainTransform,
                   testTransform,
+                  validationTransform,
                   batchSize,
                   numWorkers,
                   pinMemory):
@@ -52,6 +56,12 @@ def getDataLoader(trainImagesDir,
         rootDir=testImagesDir,
         tranform=testTransform,
         labeled=False
+    )
+
+    validationDatas = MyDataset(
+        rootDir=validationImagesDir,
+        tranform=validationTransform,
+        labeled=True
     )
 
     trainDataLoader = DataLoader(
@@ -70,7 +80,15 @@ def getDataLoader(trainImagesDir,
         pin_memory=pinMemory
     )
 
-    return trainDataLoader, testDataLoader
+    validationDataLoader = DataLoader(
+        dataset=validationDatas,
+        batch_size=batchSize,
+        shuffle=False,
+        num_workers=numWorkers,
+        pin_memory=pinMemory
+    )
+
+    return trainDataLoader, testDataLoader, validationDataLoader
 
 
 def trainStep(model: torch.nn.Module,
@@ -90,36 +108,73 @@ def trainStep(model: torch.nn.Module,
             trainPred = model(xTrain)
             loss = lossFn(trainPred,yTrain)
             trainLoss += loss.item()
-            trainAcc += accFn(yTrue = yTrain, yPred = trainPred.argmax(dim=1))
+            trainAcc += accFn(yTrue = yTrain, yPred = trainPred)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
     trainLoss /= len(dataLoader)
     trainAcc /= len(dataLoader)
-    print(f"TRAIN LOSS = {trainLoss} | TRAIN ACCURACY = {trainAcc}")
+    print(f"TRAIN LOSS = {trainLoss:.4f} | TRAIN ACCURACY = {trainAcc:.4f}")
 
-def testStep(model: torch.nn.Module,
-             dataLoader: torch.utils.data.DataLoader,
-             lossFn: torch.nn.Module,
-             accFn,
-             device: torch.device = DEVICE):
-    
+# def testStep(model: torch.nn.Module,
+#              dataLoader: torch.utils.data.DataLoader,
+#              dataset, 
+#              csvFile: str = "test_predictions.csv",
+#              device: torch.device = DEVICE):
+
+#     model.eval()
+#     results = []
+
+#     base_dataset = dataset.dataset if isinstance(dataset, Subset) else dataset
+
+#     if not hasattr(base_dataset, "class_to_idx"):
+#         raise ValueError("Base dataset does not have class_to_idx mapping.")
+
+#     idx_to_class = {v: k for k, v in base_dataset.class_to_idx.items()}
+
+#     with torch.inference_mode():
+#         for xTest, names in dataLoader:
+#             xTest = xTest.to(device)
+#             yPred = model(xTest)
+#             preds = torch.argmax(yPred, dim=1)
+
+#             for name, p in zip(names, preds):
+#                 results.append((name, idx_to_class[p.item()]))
+
+#     # CSV'ye yaz (isim sırasını bozmadan)
+#     results.sort(key=lambda x: x[0])  # opsiyonel: alfabetik sıralama
+#     with open(csvFile, mode="w", newline="", encoding="utf-8") as f:
+#         writer = csv.writer(f)
+#         writer.writerow(["image_name", "predicted_class"])
+#         for name, pred in results:
+#             writer.writerow([name, pred])
+
+#     print(f"Test tahminleri {csvFile} dosyasına kaydedildi.")
+
+
+def validationStep(model:torch.nn.Module,
+                   dataLoader: torch.utils.data.DataLoader,
+                   lossFn: torch.nn.Module,
+                   accFn,
+                   device: torch.device = DEVICE):
     model.eval()
-    testLoss, testAcc = 0,0
+    validationLoss, validationAcc = 0,0
+    with torch.inference_mode(): 
+        for xVal, yVal in dataLoader:
+            xVal, yVal = xVal.to(device), yVal.to(device)
 
-    for xTest, yTest in dataLoader:
-        xTest, yTest = xTest.to(device), yTest.to(device)
+            yPred = model(xVal)
+            loss = lossFn(yPred, yVal)
+            validationLoss += loss.item()
+            validationAcc += accFn(yTrue=yVal, yPred=yPred)
 
-        with torch.inference_mode():
-            testPred = model(xTest)
-            testLoss += lossFn(testPred,yTest).item()
-            testAcc += accFn(yTrue = yTest, yPred = testPred.argmax(dim=1))
-        
-    testLoss /= len(dataLoader)
-    testAcc /= len(dataLoader)
+    validationLoss /= len(dataLoader)
+    validationAcc /= len(dataLoader)
 
-    print(f"TEST LOSS = {testLoss} | TEST ACCURACY = {testAcc}")
+    print(f"VALIDATION LOSS = {validationLoss:.4f} | VALIDATION ACC = {validationAcc:.4f}")
+    return validationLoss
+
 
 
 

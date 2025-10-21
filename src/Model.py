@@ -1,15 +1,16 @@
 #LIBRARIES
 import torch
 from torch import nn
-from torchvision import models
+from torchvision.models import mobilenet_v2, MobileNet_V2_Weights
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-pretrainedModel = models.MobileNetV2(pretrained = True)
-
-pretrainedModel.classifier[1] = nn.Linear(
-    in_features= pretrainedModel.classifier[1].in_features,
-    out_features=26
-)
-
-pretrainedModel = pretrainedModel.to(DEVICE)
+def getMaskModel(numClasses=29, device="cpu"):
+    # En güncel ön-eğitimli ağırlıkları kullan
+    weights = MobileNet_V2_Weights.DEFAULT
+    model = mobilenet_v2(weights=weights)
+    
+    # Son sınıflandırma katmanını değiştir
+    model.classifier[1] = nn.Linear(model.classifier[1].in_features, numClasses)
+    model = model.to(device)
+    return model

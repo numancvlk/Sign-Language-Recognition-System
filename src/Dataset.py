@@ -1,5 +1,6 @@
 #LIBRARIES
 import os
+import torch
 from torch.utils.data import Dataset
 from PIL import Image
 
@@ -51,7 +52,8 @@ class MyDataset(Dataset):
             image = self.transform(image)
 
         if self.labeled:
-            return image, sample["label"]
+            label = torch.tensor(sample["label"], dtype=torch.long)  # <- burada long
+            return image, label
         else:
             # test verisinde etiket yok -> sadece image ve dosya adı
             return image, os.path.basename(sample["path"])
