@@ -1,8 +1,29 @@
 #LIBRARIES
 import torch
+from torch.utils.data import DataLoader
 
 #SCRIPTS
 from Model import DEVICE
+from Dataset import MyDataset
+
+def saveCheckpoint(model,optimizer,epoch, checkpointFile = "myCheckpoint.pth"):
+    checkpoint = {
+        "model": model.state_dict,
+        "optimizer": optimizer.state_dict,
+        "epoch": epoch
+    }
+
+    torch.save(checkpoint, checkpointFile)
+    print("MODEL CHECKPOINT ALINDI")
+
+def loadCheckpoint(checkpointFile,model,optimizer):
+    checkpoint = torch.load(checkpointFile, map_location=DEVICE)
+    model.load_state_dict(checkpoint["model"])
+    optimizer.load_state_dict(checkpoint["optimizer"])
+    epoch = checkpoint["epoch"]
+    print("CHECKPOINT YUKLENDİ")
+    return epoch + 1
+
 
 def accuracy(yTrue, yPred):
     correct =  torch.eq(yTrue,yPred).sum().item()
@@ -12,6 +33,45 @@ def accuracy(yTrue, yPred):
 def printTrainTime(start,end,device):
     totalTime = end - start
     print(f"Total time is {totalTime} on the {device}")
+
+def getDataLoader(trainImagesDir,
+                  testImagesDir,
+                  trainTransform,
+                  testTransform,
+                  batchSize,
+                  numWorkers,
+                  pinMemory):
+    
+    trainDatas = MyDataset(
+        rootDir=trainImagesDir,
+        tranform=trainTransform,
+        labeled=True
+    )
+
+    testDatas = MyDataset(
+        rootDir=testImagesDir,
+        tranform=testTransform,
+        labeled=False
+    )
+
+    trainDataLoader = DataLoader(
+        dataset=trainDatas,
+        batch_size=batchSize,
+        shuffle=True,
+        num_workers=numWorkers,
+        pin_memory=pinMemory
+    )
+
+    testDataLoader = DataLoader(
+        dataset=testDatas,
+        batch_size=batchSize,
+        shuffle=False,
+        num_workers=numWorkers,
+        pin_memory=pinMemory
+    )
+
+    return trainDataLoader, testDataLoader
+
 
 def trainStep(model: torch.nn.Module,
               dataLoader: torch.utils.data.DataLoader,
