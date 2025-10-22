@@ -10,10 +10,10 @@ from Model import DEVICE, getMaskModel
 from Utils import accuracy,printTrainTime,getDataLoader,trainStep, saveCheckpoint,loadCheckpoint, validationStep
 
 #HYPERPARAMETERS
-EPOCHS = 15
-FIRST_STAGE_EPOCHS = 15
+EPOCHS = 100
+FIRST_STAGE_EPOCHS = 50
 LEARNING_RATE = 1e-4
-BATCH_SIZE = 32
+BATCH_SIZE = 128
 NUM_WORKERS = 2
 PIN_MEMORY = True
 LOAD_MODEL = False
@@ -197,4 +197,3 @@ if __name__ == "__main__":
                    end=endTrainTimer,
                    device=DEVICE)
     
-

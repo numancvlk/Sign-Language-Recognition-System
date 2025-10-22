@@ -19,11 +19,16 @@ def saveCheckpoint(model,optimizer,epoch, checkpointFile = "myCheckpoint.pth"):
 
 def loadCheckpoint(checkpointFile,model,optimizer):
     checkpoint = torch.load(checkpointFile, map_location=DEVICE)
+        
     model.load_state_dict(checkpoint["model"])
-    optimizer.load_state_dict(checkpoint["optimizer"])
-    epoch = checkpoint["epoch"]
-    print("CHECKPOINT YUKLENDİ")
-    return epoch + 1
+        
+    if optimizer is not None and "optimizer" in checkpoint:
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        
+        epoch = checkpoint["epoch"]
+        print(f"CHECKPOINT YUKLENDİ: Epoch {epoch} model ağırlıkları ve/veya optimizer durumu.")
+        
+        return epoch + 1
 
 
 def accuracy(yTrue, yPred):
