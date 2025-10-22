@@ -78,7 +78,6 @@ if __name__ == "__main__":
     for param in myModel.parameters():
         param.requires_grad = False
 
-    # Sadece yeni eklediğimiz son katmanı (classifier[1]) aç
     for param in myModel.classifier.parameters():
         param.requires_grad = True
 
@@ -137,27 +136,21 @@ if __name__ == "__main__":
                 break
 
 
-    # --- AŞAMA 2: FINE-TUNING (Tüm modeli düşük LR ile eğit) ---
     print("\n--- AŞAMA 2 BAŞLIYOR: Tüm model (fine-tuning) eğitiliyor ---")
     
     # Tüm katmanları aç
     for param in myModel.parameters():
         param.requires_grad = True
         
-    # Optimizer'ı TÜM parametreler ve DÜŞÜK LR ile yeniden oluştur
     optimizer = torch.optim.AdamW(params=myModel.parameters(),
                                   lr=LEARNING_RATE / 10) # 10 kat daha düşük LR
     
-    # Scheduler'ı yeni optimizer ile güncelle
     scheduler = ReduceLROnPlateau(optimizer=optimizer,
                                   mode="min",
                                   patience=10)
-    
-    # En iyi loss'u ve patience'ı sıfırla (veya en son A1'den devam et)
-    # bestLoss = float("inf") # Sıfırlamak daha iyi olabilir
+
     patienceCounter = 0 
     
-    # Kalan epochlar için ana döngü
     remaining_epochs = EPOCHS - FIRST_STAGE_EPOCHS
     for epoch_idx in tqdm(range(remaining_epochs)):
         epoch = epoch_idx + FIRST_STAGE_EPOCHS # Toplam epoch sayısını göstermek için
